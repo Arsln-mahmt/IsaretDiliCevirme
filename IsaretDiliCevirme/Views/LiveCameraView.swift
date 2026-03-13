@@ -72,6 +72,17 @@ struct LiveCameraView: View {
                     .padding(.vertical, 5)
                     .background(.ultraThinMaterial, in: Capsule())
             }
+
+            // Camera switch button
+            Button {
+                viewModel.switchCamera()
+            } label: {
+                Image(systemName: "arrow.triangle.2.circlepath.camera.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(AppColors.cameraOverlayText)
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 60)

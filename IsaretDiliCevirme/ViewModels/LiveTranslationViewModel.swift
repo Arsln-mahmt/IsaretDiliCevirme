@@ -77,6 +77,11 @@ final class LiveTranslationViewModel: @unchecked Sendable {
 
     // MARK: - Camera Setup
 
+    /// Switches between front and rear cameras.
+    func switchCamera() {
+        cameraService.switchCamera()
+    }
+
     private func setupAndStartCamera() {
         cameraService.delegate = self
         cameraService.configure()

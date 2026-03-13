@@ -42,6 +42,9 @@ final class CameraService: NSObject, @unchecked Sendable {
     /// Whether the session is currently running.
     private(set) var isRunning = false
 
+    /// Current camera position.
+    private(set) var currentPosition: AVCaptureDevice.Position = .front
+
     // MARK: - Configuration
 
     /// Configures camera input and output. Call once before starting.
@@ -55,10 +58,14 @@ final class CameraService: NSObject, @unchecked Sendable {
         captureSession.beginConfiguration()
         captureSession.sessionPreset = .high
 
-        // Camera input — prefer front camera for sign language (user faces the camera)
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
+        // Remove existing inputs and outputs to allow safe reconfiguration
+        captureSession.inputs.forEach { captureSession.removeInput($0) }
+        captureSession.outputs.forEach { captureSession.removeOutput($0) }
+
+        // Camera input
+        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: currentPosition),
               let input = try? AVCaptureDeviceInput(device: camera) else {
-            print("[CameraService] ❌ Could not access front camera.")
+            print("[CameraService] ❌ Could not access camera at position \(currentPosition).")
             captureSession.commitConfiguration()
             return
         }
@@ -83,7 +90,7 @@ final class CameraService: NSObject, @unchecked Sendable {
             }
             // Mirror the front camera
             if connection.isVideoMirroringSupported {
-                connection.isVideoMirrored = true
+                connection.isVideoMirrored = currentPosition == .front
             }
         }
 
@@ -91,6 +98,25 @@ final class CameraService: NSObject, @unchecked Sendable {
     }
 
     // MARK: - Session Control
+
+    /// Switches between front and back camera.
+    func switchCamera() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.currentPosition = self.currentPosition == .front ? .back : .front
+            let wasRunning = self.captureSession.isRunning
+            
+            if wasRunning {
+                self.captureSession.stopRunning()
+            }
+            
+            self.setupSession()
+            
+            if wasRunning {
+                self.captureSession.startRunning()
+            }
+        }
+    }
 
     /// Starts the capture session on the background queue.
     func start() {
