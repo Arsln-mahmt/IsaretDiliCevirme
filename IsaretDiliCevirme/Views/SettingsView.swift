@@ -45,9 +45,8 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         pipelineStep(step: "1", text: "Kamera görüntüsü yakalar", icon: "camera.fill")
                         pipelineStep(step: "2", text: "Vision ile el noktaları algılanır", icon: "hand.raised.fill")
-                        pipelineStep(step: "3", text: "Landmark verileri sunucuya gönderilir", icon: "arrow.up.circle.fill")
-                        pipelineStep(step: "4", text: "LSTM modeli hareketi tahmin eder", icon: "brain.fill")
-                        pipelineStep(step: "5", text: "Sonuç ekranda gösterilir", icon: "text.bubble.fill")
+                        pipelineStep(step: "3", text: "LSTM modeli hareketi tahmin eder", icon: "brain.fill")
+                        pipelineStep(step: "4", text: "Sonuç ekranda gösterilir", icon: "text.bubble.fill")
                     }
                     .padding(.vertical, 4)
                 } header: {
@@ -55,20 +54,6 @@ struct SettingsView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppColors.accentRed)
                         .textCase(nil)
-                }
-
-                // MARK: - Footer
-                Section {
-                    VStack(spacing: 6) {
-                        Text("İşaretçe v1.0.0")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.secondary)
-                        Text("© 2026 Mahmut Arslan")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
                 }
             }
             .navigationTitle("Ayarlar")

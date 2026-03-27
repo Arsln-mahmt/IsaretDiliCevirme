@@ -21,7 +21,7 @@ struct OnboardingView: View {
     private let pages: [(icon: String, title: String, description: String, gradient: [Color])] = [
         (
             icon: "hand.wave.fill",
-            title: "İşaretçe'ye Hoş Geldiniz",
+            title: "İşaret Dili Çevirmeye'ye Hoş Geldiniz",
             description: "Bu uygulama, kameranızı kullanarak Türk İşaret Dili hareketlerini metne çevirir.",
             gradient: AppColors.onboardingGradient1
         ),
