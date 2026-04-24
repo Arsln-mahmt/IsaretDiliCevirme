@@ -21,10 +21,14 @@ struct IsaretDiliCevirmeApp: App {
         AppTheme(rawValue: appThemeRaw) ?? .system
     }
 
+    @State private var showSplash = true
+
     var body: some Scene {
         WindowGroup {
             Group {
-                if hasCompletedOnboarding {
+                if showSplash {
+                    SplashView(showSplash: $showSplash)
+                } else if hasCompletedOnboarding {
                     MainTabView()
                 } else {
                     OnboardingView {

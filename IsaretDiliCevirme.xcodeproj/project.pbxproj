@@ -6,7 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0C20D0232F9BD4A300806C9B /* splash_video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 0C20D0222F9BD4A300806C9B /* splash_video.mp4 */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		0C20D0222F9BD4A300806C9B /* splash_video.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = splash_video.mp4; sourceTree = "<group>"; };
 		0C6924AC2F5ECBE9005A0AD4 /* IsaretDiliCevirme.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IsaretDiliCevirme.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -34,6 +39,7 @@
 			children = (
 				0C6924AE2F5ECBE9005A0AD4 /* IsaretDiliCevirme */,
 				0C6924AD2F5ECBE9005A0AD4 /* Products */,
+				0C20D0222F9BD4A300806C9B /* splash_video.mp4 */,
 			);
 			sourceTree = "<group>";
 		};
@@ -109,6 +115,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C20D0232F9BD4A300806C9B /* splash_video.mp4 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
