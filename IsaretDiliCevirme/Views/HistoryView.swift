@@ -6,16 +6,18 @@
 //
 
 import SwiftUI
+import AVKit
 
-/// Displays a list of previously detected sign language words with timestamps.
+/// Displays a list of previously saved sentence translations with timestamps.
 struct HistoryView: View {
 
     @Bindable var viewModel: HistoryViewModel
+    @State private var selectedRecord: TranslationRecord?
 
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.records.isEmpty {
+                if viewModel.savedVideoRecords.isEmpty {
                     emptyStateView
                 } else {
                     recordsList
@@ -27,7 +29,7 @@ struct HistoryView: View {
                 Color.clear.frame(height: 60)
             }
             .toolbar {
-                if !viewModel.records.isEmpty {
+                if !viewModel.savedVideoRecords.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Temizle", role: .destructive) {
                             withAnimation {
@@ -38,6 +40,9 @@ struct HistoryView: View {
                     }
                 }
             }
+            .sheet(item: $selectedRecord) { record in
+                TranslationVideoDetailView(record: record)
+            }
         }
     }
 
@@ -45,38 +50,15 @@ struct HistoryView: View {
 
     private var recordsList: some View {
         List {
-            ForEach(viewModel.records) { record in
-                HStack(spacing: 16) {
-                    // Word with accent color indicator
-                    HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(
-                                LinearGradient(
-                                    colors: AppColors.primaryGradient,
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .frame(width: 4, height: 36)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(record.word)
-                                .font(.system(size: 17, weight: .semibold, design: .rounded))
-
-                            Text("Güven: \(record.confidenceText)")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
+            ForEach(viewModel.savedVideoRecords) { record in
+                recordCard(for: record)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedRecord = record
                     }
-
-                    Spacer()
-
-                    // Timestamp
-                    Text(record.formattedTime)
-                        .font(.system(size: 15, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 6)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
             .onDelete { offsets in
                 withAnimation {
@@ -84,7 +66,73 @@ struct HistoryView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+    }
+
+    private func recordCard(for record: TranslationRecord) -> some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    LinearGradient(
+                        colors: AppColors.primaryGradient,
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 6)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(record.sentence)
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text(record.formattedTimestamp)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 42, height: 42)
+                            .background(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: AppColors.primaryGradient,
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+
+                        Text("Oynat")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(AppColors.primary)
+                    }
+                }
+
+                Label("Güven: \(record.confidenceText)", systemImage: "waveform.path.ecg")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color(uiColor: .secondarySystemBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Empty State
@@ -99,7 +147,7 @@ struct HistoryView: View {
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
 
-            Text("Algılanan işaret hareketleri burada görünecek.")
+            Text("Kaydettiğin videolu cümleler burada görünecek.")
                 .font(.system(size: 15))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -111,4 +159,64 @@ struct HistoryView: View {
 
 #Preview {
     HistoryView(viewModel: HistoryViewModel())
+}
+
+private struct TranslationVideoDetailView: View {
+    let record: TranslationRecord
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let videoURL = record.localVideoURL {
+                    VideoPlayer(player: player)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .padding()
+                        .onAppear {
+                            let newPlayer = AVPlayer(url: videoURL)
+                            player = newPlayer
+                            newPlayer.play()
+                        }
+                        .onDisappear {
+                            player?.pause()
+                            player = nil
+                        }
+                } else {
+                    ContentUnavailableView(
+                        "Video bulunamadı",
+                        systemImage: "video.slash",
+                        description: Text("Bu kayıt için lokal video dosyası artık erişilebilir değil.")
+                    )
+                    .padding()
+                }
+            }
+            .navigationTitle("Kayıt Detayı")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Kapat") {
+                        dismiss()
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(record.sentence)
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+
+                    Text(record.formattedTimestamp)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    Text("Güven: \(record.confidenceText)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .background(.ultraThinMaterial)
+            }
+        }
+    }
 }

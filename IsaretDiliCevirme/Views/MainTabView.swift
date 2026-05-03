@@ -46,7 +46,7 @@ struct MainTabView: View {
                     .tag(AppTab.history)
                     .toolbar(.hidden, for: .tabBar)
 
-                LiveCameraView()
+                LiveCameraView(historyViewModel: historyViewModel)
                     .tag(AppTab.translate)
                     .toolbar(.hidden, for: .tabBar)
 

@@ -16,7 +16,12 @@ import SwiftUI
 ///   4. Status bar (top) showing detection info
 struct LiveCameraView: View {
 
-    @State private var viewModel = LiveTranslationViewModel()
+    @State private var viewModel: LiveTranslationViewModel
+    @State private var sessionStartTask: Task<Void, Never>?
+
+    init(historyViewModel: HistoryViewModel = HistoryViewModel()) {
+        _viewModel = State(initialValue: LiveTranslationViewModel(historyViewModel: historyViewModel))
+    }
 
     var body: some View {
         ZStack {
@@ -61,15 +66,27 @@ struct LiveCameraView: View {
                 
                 // Accumulated sentence display
                 sentenceOverlay
+
+                // Recording controls
+                recordingControls
                 
                 // Compact bottom bar
                 bottomInfoBar
             }
         }
         .onAppear {
-            viewModel.startSession()
+            sessionStartTask?.cancel()
+            sessionStartTask = Task {
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    viewModel.startSession()
+                }
+            }
         }
         .onDisappear {
+            sessionStartTask?.cancel()
+            sessionStartTask = nil
             viewModel.stopSession()
         }
         .statusBarHidden(true)
@@ -115,6 +132,7 @@ struct LiveCameraView: View {
                     .padding(8)
                     .background(.ultraThinMaterial, in: Circle())
             }
+            .disabled(viewModel.isRecordingVideo || viewModel.isFinalizingRecording)
         }
         .padding(.horizontal, 20)
         .padding(.top, 60)
@@ -218,6 +236,7 @@ struct LiveCameraView: View {
                                 .fill(Color.white.opacity(0.2))
                         )
                     }
+                    .disabled(viewModel.isFinalizingRecording)
                 }
             }
             .padding(.horizontal, 24)
@@ -232,6 +251,65 @@ struct LiveCameraView: View {
             .transition(.scale.combined(with: .opacity))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.currentSentence)
         }
+    }
+
+    private var recordingControls: some View {
+        VStack(spacing: 10) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    viewModel.toggleRecording()
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(viewModel.isRecordingVideo ? Color.red : Color.white.opacity(0.2))
+                            .frame(width: 18, height: 18)
+
+                        if viewModel.isFinalizingRecording {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                                .scaleEffect(0.7)
+                        } else if !viewModel.isRecordingVideo {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 2)
+                                .frame(width: 18, height: 18)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.recordButtonTitle)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text(viewModel.isRecordingVideo ? "Tekrar basınca video ve cümle kaydedilir" : "Yeni cümle için kaydı başlat")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+
+                    Spacer()
+
+                    Image(systemName: viewModel.isRecordingVideo ? "stop.fill" : "record.circle")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 22)
+                        .fill(viewModel.isRecordingVideo ? Color.red.opacity(0.75) : Color.black.opacity(0.6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 22)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+                .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 6)
+            }
+            .disabled(!viewModel.canToggleRecording)
+            .padding(.horizontal, 20)
+        }
+        .padding(.bottom, 12)
     }
 
     // MARK: - Compact Bottom Info Bar
@@ -310,4 +388,3 @@ struct LiveCameraView: View {
 #Preview {
     LiveCameraView()
 }
-

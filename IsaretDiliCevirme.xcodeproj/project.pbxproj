@@ -8,11 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		0C20D0232F9BD4A300806C9B /* splash_video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 0C20D0222F9BD4A300806C9B /* splash_video.mp4 */; };
+		0CF91B8B2FA7BA2C006F92A1 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0CF91B8A2FA7BA2C006F92A1 /* FirebaseCore */; };
+		0CF91B8D2FA7BA2C006F92A1 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 0CF91B8C2FA7BA2C006F92A1 /* FirebaseFirestore */; };
+		0CF91B8F2FA7BA2C006F92A1 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 0CF91B8E2FA7BA2C006F92A1 /* FirebaseStorage */; };
+		0CF91B912FA7BAC3006F92A1 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0CF91B902FA7BAC3006F92A1 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0C20D0222F9BD4A300806C9B /* splash_video.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = splash_video.mp4; sourceTree = "<group>"; };
 		0C6924AC2F5ECBE9005A0AD4 /* IsaretDiliCevirme.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IsaretDiliCevirme.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CF91B902FA7BAC3006F92A1 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -28,6 +33,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0CF91B8B2FA7BA2C006F92A1 /* FirebaseCore in Frameworks */,
+				0CF91B8D2FA7BA2C006F92A1 /* FirebaseFirestore in Frameworks */,
+				0CF91B8F2FA7BA2C006F92A1 /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -40,6 +48,7 @@
 				0C6924AE2F5ECBE9005A0AD4 /* IsaretDiliCevirme */,
 				0C6924AD2F5ECBE9005A0AD4 /* Products */,
 				0C20D0222F9BD4A300806C9B /* splash_video.mp4 */,
+				0CF91B902FA7BAC3006F92A1 /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -71,6 +80,9 @@
 			);
 			name = IsaretDiliCevirme;
 			packageProductDependencies = (
+				0CF91B8A2FA7BA2C006F92A1 /* FirebaseCore */,
+				0CF91B8C2FA7BA2C006F92A1 /* FirebaseFirestore */,
+				0CF91B8E2FA7BA2C006F92A1 /* FirebaseStorage */,
 			);
 			productName = IsaretDiliCevirme;
 			productReference = 0C6924AC2F5ECBE9005A0AD4 /* IsaretDiliCevirme.app */;
@@ -100,6 +112,9 @@
 			);
 			mainGroup = 0C6924A32F5ECBE9005A0AD4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0CF91B892FA7BA2C006F92A1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0C6924AD2F5ECBE9005A0AD4 /* Products */;
 			projectDirPath = "";
@@ -116,6 +131,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C20D0232F9BD4A300806C9B /* splash_video.mp4 in Resources */,
+				0CF91B912FA7BAC3006F92A1 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -345,6 +361,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0CF91B892FA7BA2C006F92A1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.12.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0CF91B8A2FA7BA2C006F92A1 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0CF91B892FA7BA2C006F92A1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		0CF91B8C2FA7BA2C006F92A1 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0CF91B892FA7BA2C006F92A1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		0CF91B8E2FA7BA2C006F92A1 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0CF91B892FA7BA2C006F92A1 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0C6924A42F5ECBE9005A0AD4 /* Project object */;
 }

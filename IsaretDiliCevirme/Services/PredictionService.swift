@@ -25,7 +25,7 @@ final class PredictionService: @unchecked Sendable {
     #if targetEnvironment(simulator)
     private let endpointURL = URL(string: "http://127.0.0.1:8000/api/v1/predict")!
     #else
-    private let endpointURL = URL(string: "http://192.168.1.208:8000/api/v1/predict")!
+    private let endpointURL = URL(string: "http://192.168.1.103:8000/api/v1/predict")!
     #endif
     
     /// A dedicated URLSession with a short timeout for live camera usage.

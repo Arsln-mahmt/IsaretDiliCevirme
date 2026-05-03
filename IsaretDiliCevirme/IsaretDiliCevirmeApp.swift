@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseCore
 
 @main
 struct IsaretDiliCevirmeApp: App {
@@ -22,6 +23,12 @@ struct IsaretDiliCevirmeApp: App {
     }
 
     @State private var showSplash = true
+
+    init() {
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+    }
 
     var body: some Scene {
         WindowGroup {

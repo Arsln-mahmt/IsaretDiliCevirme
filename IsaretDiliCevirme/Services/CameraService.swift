@@ -17,6 +17,12 @@ protocol CameraServiceDelegate: AnyObject {
     nonisolated func cameraService(_ service: CameraService, didOutput sampleBuffer: CMSampleBuffer)
 }
 
+@MainActor
+protocol CameraServiceRecordingDelegate: AnyObject {
+    /// Called when the active video recording finishes writing to disk.
+    nonisolated func cameraService(_ service: CameraService, didFinishRecordingTo outputURL: URL, error: Error?)
+}
+
 // MARK: - CameraService
 
 /// Manages the AVCaptureSession to capture camera frames.
@@ -39,11 +45,17 @@ final class CameraService: NSObject, @unchecked Sendable {
     /// Delegate that receives captured frames.
     weak var delegate: (any CameraServiceDelegate)?
 
+    /// Delegate that receives recording completion callbacks.
+    weak var recordingDelegate: (any CameraServiceRecordingDelegate)?
+
     /// Whether the session is currently running.
     private(set) var isRunning = false
 
     /// Current camera position.
     private(set) var currentPosition: AVCaptureDevice.Position = .front
+
+    /// Movie output used for local sentence recordings.
+    private let movieOutput = AVCaptureMovieFileOutput()
 
     // MARK: - Configuration
 
@@ -83,12 +95,25 @@ final class CameraService: NSObject, @unchecked Sendable {
             captureSession.addOutput(output)
         }
 
+        if captureSession.canAddOutput(movieOutput) {
+            captureSession.addOutput(movieOutput)
+        }
+
         // Set video orientation to portrait
         if let connection = output.connection(with: .video) {
             if connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
             }
             // Mirror the front camera
+            if connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = currentPosition == .front
+            }
+        }
+
+        if let connection = movieOutput.connection(with: .video) {
+            if connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
             if connection.isVideoMirroringSupported {
                 connection.isVideoMirrored = currentPosition == .front
             }
@@ -135,6 +160,26 @@ final class CameraService: NSObject, @unchecked Sendable {
             self.isRunning = false
         }
     }
+
+    func startRecording(to outputURL: URL) {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard !self.movieOutput.isRecording else { return }
+
+            if FileManager.default.fileExists(atPath: outputURL.path()) {
+                try? FileManager.default.removeItem(at: outputURL)
+            }
+
+            self.movieOutput.startRecording(to: outputURL, recordingDelegate: self)
+        }
+    }
+
+    func stopRecording() {
+        sessionQueue.async { [weak self] in
+            guard let self, self.movieOutput.isRecording else { return }
+            self.movieOutput.stopRecording()
+        }
+    }
 }
 
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
@@ -146,5 +191,18 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         from connection: AVCaptureConnection
     ) {
         delegate?.cameraService(self, didOutput: sampleBuffer)
+    }
+}
+
+// MARK: - AVCaptureFileOutputRecordingDelegate
+
+extension CameraService: AVCaptureFileOutputRecordingDelegate {
+    nonisolated func fileOutput(
+        _ output: AVCaptureFileOutput,
+        didFinishRecordingTo outputFileURL: URL,
+        from connections: [AVCaptureConnection],
+        error: (any Error)?
+    ) {
+        recordingDelegate?.cameraService(self, didFinishRecordingTo: outputFileURL, error: error)
     }
 }

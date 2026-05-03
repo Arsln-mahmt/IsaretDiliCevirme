@@ -35,12 +35,18 @@ struct SplashView: View {
                 }
             }
         }
+        .onDisappear {
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+        }
     }
     
     private func setupAndPlayVideo() {
         // "splash_video" adlı mp4 dosyasını projenin içinden bul
         if let url = Bundle.main.url(forResource: "splash_video", withExtension: "mp4") {
             player = AVPlayer(url: url)
+            player.isMuted = true
+            player.actionAtItemEnd = .pause
             player.play()
         }
     }

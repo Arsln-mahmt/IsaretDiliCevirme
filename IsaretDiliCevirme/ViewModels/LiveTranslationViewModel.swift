@@ -39,6 +39,12 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     /// Whether the camera is currently active.
     var isCameraRunning = false
 
+    /// Whether a local video recording is currently active.
+    var isRecordingVideo = false
+
+    /// Whether a recording stop/save operation is currently in progress.
+    var isFinalizingRecording = false
+
     /// Status message for the user.
     var statusMessage = "Kamera başlatılıyor..."
 
@@ -60,6 +66,8 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     let cameraService = CameraService()
     private let visionService = VisionService()
     private let predictionService = PredictionService()
+    private let historyViewModel: HistoryViewModel
+    private var hasConfiguredSession = false
     
     // MARK: - Text-to-Speech
     
@@ -97,17 +105,57 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     /// Tracks whether hands are currently visible.
     private var handsAreVisible = false
 
+    /// Per-word confidence samples used to build a sentence-level confidence.
+    private var sentenceConfidenceSamples: [Double] = []
+
+    /// Temporary URL while a sentence capture is being recorded.
+    private var activeRecordingURL: URL?
+
+    /// Whether the active recording should be deleted after finishing.
+    private var discardRecordingOnFinish = false
+
+    /// Whether the current recording should be persisted when the file output finishes.
+    private var saveRecordingOnFinish = false
+
+    var recordButtonTitle: String {
+        if isFinalizingRecording {
+            return "Kaydediliyor..."
+        }
+        return isRecordingVideo ? "Kaydı Bitir" : "Kayda Başla"
+    }
+
+    var canToggleRecording: Bool {
+        cameraPermissionGranted && !isFinalizingRecording
+    }
+
+    init(historyViewModel: HistoryViewModel = HistoryViewModel()) {
+        self.historyViewModel = historyViewModel
+    }
+
     // MARK: - Lifecycle
 
     /// Requests camera permission and starts the pipeline.
     func startSession() {
+        if hasConfiguredSession {
+            cameraService.start()
+            isCameraRunning = true
+            statusMessage = "El algılama ve Çeviri aktif"
+            return
+        }
+
         checkCameraPermission()
     }
 
     /// Stops the camera session.
     func stopSession() {
+        if activeRecordingURL != nil {
+            discardRecordingOnFinish = true
+            saveRecordingOnFinish = false
+            cameraService.stopRecording()
+        }
         cameraService.stop()
         isCameraRunning = false
+        isFinalizingRecording = false
         statusMessage = "Kamera durduruldu"
         sentenceCompleteTimer?.invalidate()
     }
@@ -145,7 +193,11 @@ final class LiveTranslationViewModel: @unchecked Sendable {
 
     private func setupAndStartCamera() {
         cameraService.delegate = self
-        cameraService.configure()
+        cameraService.recordingDelegate = self
+        if !hasConfiguredSession {
+            cameraService.configure()
+            hasConfiguredSession = true
+        }
         cameraService.start()
         isCameraRunning = true
         statusMessage = "El algılama ve Çeviri aktif"
@@ -154,19 +206,25 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     // MARK: - Sentence Management
     
     /// Adds a confirmed word to the current sentence.
-    private func addWordToSentence(_ word: String) {
+    private func addWordToSentence(_ word: String, confidence: Double) {
         // Don't add if it's the same as the last word in our sentence
         guard word != previousWord else { return }
         
         sentenceWords.append(word)
+        sentenceConfidenceSamples.append(confidence)
         previousWord = word
         currentSentence = sentenceWords.joined(separator: " ")
         isSentenceComplete = false
     }
     
     /// Clears the current sentence and resets all state for a fresh start.
-    func clearSentence() {
+    func clearSentence(shouldDiscardPendingCapture: Bool = true) {
+        if shouldDiscardPendingCapture {
+            discardPendingCapture()
+        }
+
         sentenceWords.removeAll()
+        sentenceConfidenceSamples.removeAll()
         previousWord = ""
         pendingWord = ""
         sameWordCount = 0
@@ -175,6 +233,16 @@ final class LiveTranslationViewModel: @unchecked Sendable {
         isSentenceComplete = false
         statusMessage = "El algılama ve Çeviri aktif"
         stopSpeaking()
+    }
+
+    func toggleRecording() {
+        guard canToggleRecording else { return }
+
+        if isRecordingVideo {
+            stopManualRecording()
+        } else {
+            startManualRecording()
+        }
     }
     
     // MARK: - Text-to-Speech
@@ -240,6 +308,88 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     private func cancelSentenceCompletionTimer() {
         sentenceCompleteTimer?.invalidate()
         sentenceCompleteTimer = nil
+    }
+
+    private var currentSentenceConfidence: Double {
+        guard !sentenceConfidenceSamples.isEmpty else { return 0 }
+        let total = sentenceConfidenceSamples.reduce(0, +)
+        return total / Double(sentenceConfidenceSamples.count)
+    }
+
+    private func startManualRecording() {
+        discardPendingCapture()
+        resetSentenceState()
+
+        let temporaryURL = VideoStorage.makeTemporaryRecordingURL()
+        activeRecordingURL = temporaryURL
+        discardRecordingOnFinish = false
+        saveRecordingOnFinish = false
+        isFinalizingRecording = false
+        isRecordingVideo = true
+        isSentenceComplete = false
+        errorMessage = nil
+        statusMessage = "🔴 Kayıt başladı"
+        cameraService.startRecording(to: temporaryURL)
+    }
+
+    private func stopManualRecording() {
+        guard activeRecordingURL != nil else { return }
+        saveRecordingOnFinish = true
+        discardRecordingOnFinish = false
+        isFinalizingRecording = true
+        statusMessage = "💾 Kayıt işleniyor..."
+        cameraService.stopRecording()
+    }
+
+    private func discardPendingCapture() {
+        saveRecordingOnFinish = false
+        isFinalizingRecording = false
+
+        if isRecordingVideo {
+            discardRecordingOnFinish = true
+        }
+
+        guard activeRecordingURL != nil else { return }
+        cameraService.stopRecording()
+    }
+
+    private func persistRecordedTranslation(from outputURL: URL) {
+        let trimmedSentence = currentSentence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSentence.isEmpty else {
+            VideoStorage.deleteFile(at: outputURL)
+            statusMessage = "⚠️ Cümle oluşmadığı için kayıt silindi"
+            return
+        }
+
+        let recordID = UUID()
+
+        do {
+            let savedFilename = try VideoStorage.persistRecording(from: outputURL, recordID: recordID)
+            historyViewModel.addRecord(
+                id: recordID,
+                sentence: trimmedSentence,
+                confidence: currentSentenceConfidence,
+                videoFilename: savedFilename,
+                syncState: .pendingUpload
+            )
+
+            statusMessage = "Kayıt geçmişe eklendi"
+            resetSentenceState()
+        } catch {
+            errorMessage = "Video kaydedilemedi."
+            statusMessage = "⚠️ Kayıt başarısız"
+        }
+    }
+
+    private func resetSentenceState() {
+        sentenceWords.removeAll()
+        sentenceConfidenceSamples.removeAll()
+        previousWord = ""
+        pendingWord = ""
+        sameWordCount = 0
+        currentSentence = ""
+        lastDetectedWord = ""
+        isSentenceComplete = false
     }
 }
 
@@ -308,7 +458,7 @@ extension LiveTranslationViewModel: CameraServiceDelegate {
                                     
                                     // Add word once it's confirmed enough times
                                     if self.sameWordCount >= self.requiredConfirmations {
-                                        self.addWordToSentence(word)
+                                        self.addWordToSentence(word, confidence: result.confidence_score)
                                         self.pendingWord = ""
                                         self.sameWordCount = 0
                                     }
@@ -338,7 +488,7 @@ extension LiveTranslationViewModel: CameraServiceDelegate {
                         self.isBackendConnected = false
                         
                         if self.consecutiveFailures >= self.failureThreshold {
-                            self.errorMessage = "Sunucuya bağlanılamıyor. Backend çalışıyor mu?"
+                            self.errorMessage = "Sunucuya bağlanılamıyor."
                             self.statusMessage = "⚠️ Sunucu bağlantısı yok"
                         }
                     }
@@ -346,6 +496,42 @@ extension LiveTranslationViewModel: CameraServiceDelegate {
                 
                 self.isPredicting = false
             }
+        }
+    }
+}
+
+extension LiveTranslationViewModel: CameraServiceRecordingDelegate {
+    nonisolated func cameraService(_ service: CameraService, didFinishRecordingTo outputURL: URL, error: Error?) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            self.isRecordingVideo = false
+            self.isFinalizingRecording = false
+            self.activeRecordingURL = nil
+
+            if error != nil {
+                self.saveRecordingOnFinish = false
+                self.discardRecordingOnFinish = false
+                self.errorMessage = "Video kaydı tamamlanamadı."
+                self.statusMessage = "⚠️ Video kaydı başarısız"
+                VideoStorage.deleteFile(at: outputURL)
+                return
+            }
+
+            if self.discardRecordingOnFinish {
+                self.discardRecordingOnFinish = false
+                self.saveRecordingOnFinish = false
+                VideoStorage.deleteFile(at: outputURL)
+                return
+            }
+
+            if self.saveRecordingOnFinish {
+                self.saveRecordingOnFinish = false
+                self.persistRecordedTranslation(from: outputURL)
+                return
+            }
+
+            VideoStorage.deleteFile(at: outputURL)
         }
     }
 }
