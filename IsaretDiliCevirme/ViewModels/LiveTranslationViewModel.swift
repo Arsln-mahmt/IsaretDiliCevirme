@@ -251,6 +251,16 @@ final class LiveTranslationViewModel: @unchecked Sendable {
     func speakSentence() {
         let textToSpeak = currentSentence.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !textToSpeak.isEmpty else { return }
+
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            errorMessage = "Ses oturumu başlatılamadı."
+            statusMessage = "⚠️ Seslendirilemedi"
+            return
+        }
         
         // Stop any ongoing speech first
         if speechSynthesizer.isSpeaking {
@@ -283,6 +293,12 @@ final class LiveTranslationViewModel: @unchecked Sendable {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
         isSpeaking = false
+
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            // No-op: speech already stopped, so audio session cleanup failure is non-fatal.
+        }
     }
     
     /// Called when hands disappear — starts the 3-second countdown to mark sentence as complete.
