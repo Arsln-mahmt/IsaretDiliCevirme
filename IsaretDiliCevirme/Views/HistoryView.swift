@@ -41,7 +41,10 @@ struct HistoryView: View {
                 }
             }
             .sheet(item: $selectedRecord) { record in
-                TranslationVideoDetailView(record: record)
+                TranslationVideoDetailView(record: record) { correctedSentence in
+                    viewModel.correctRecord(id: record.id, correctedSentence: correctedSentence)
+                    selectedRecord = viewModel.record(id: record.id)
+                }
             }
         }
     }
@@ -86,11 +89,22 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(record.sentence)
+                        Text(record.displaySentence)
                             .font(.system(size: 18, weight: .semibold, design: .rounded))
                             .foregroundStyle(.primary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if record.isCorrected {
+                            Label("Düzeltilmiş", systemImage: "checkmark.seal.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.accentGreen)
+
+                            Text("İlk tahmin: \(record.sentence)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
 
                         Text(record.formattedTimestamp)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -163,8 +177,20 @@ struct HistoryView: View {
 
 private struct TranslationVideoDetailView: View {
     let record: TranslationRecord
+    let onSaveCorrection: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
+    @State private var correctedSentenceText: String
+    @State private var isEditingCorrection: Bool
+    @State private var hasCorrection: Bool
+
+    init(record: TranslationRecord, onSaveCorrection: @escaping (String) -> Void) {
+        self.record = record
+        self.onSaveCorrection = onSaveCorrection
+        _correctedSentenceText = State(initialValue: record.displaySentence)
+        _isEditingCorrection = State(initialValue: false)
+        _hasCorrection = State(initialValue: record.isCorrected)
+    }
 
     var body: some View {
         NavigationStack {
@@ -201,9 +227,21 @@ private struct TranslationVideoDetailView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(record.sentence)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(correctedSentenceText)
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
+
+                    if hasCorrection {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Düzeltilmiş tahmin", systemImage: "checkmark.seal.fill")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppColors.accentGreen)
+
+                            Text("İlk tahmin: \(record.sentence)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
 
                     Text(record.formattedTimestamp)
                         .font(.system(size: 13, weight: .medium))
@@ -212,6 +250,41 @@ private struct TranslationVideoDetailView: View {
                     Text("Güven: \(record.confidenceText)")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
+
+                    if isEditingCorrection {
+                        VStack(alignment: .leading, spacing: 10) {
+                            TextField("Doğru çeviriyi yaz", text: $correctedSentenceText, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .lineLimit(2...4)
+
+                            HStack(spacing: 10) {
+                                Button("Vazgeç") {
+                                    correctedSentenceText = record.displaySentence
+                                    isEditingCorrection = false
+                                }
+                                .buttonStyle(.bordered)
+
+                                Button {
+                                    let trimmedSentence = correctedSentenceText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    guard !trimmedSentence.isEmpty else { return }
+                                    correctedSentenceText = trimmedSentence
+                                    hasCorrection = true
+                                    isEditingCorrection = false
+                                    onSaveCorrection(trimmedSentence)
+                                } label: {
+                                    Label("Kaydet", systemImage: "checkmark")
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                        }
+                    } else {
+                        Button {
+                            isEditingCorrection = true
+                        } label: {
+                            Label(hasCorrection ? "Düzeltmeyi Güncelle" : "Tahmini Düzelt", systemImage: "pencil")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)

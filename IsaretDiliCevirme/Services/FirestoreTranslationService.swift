@@ -87,6 +87,15 @@ final class FirestoreTranslationService {
             payload["localVideoFilename"] = localVideoFilename
         }
 
+        if let correctedSentence = record.correctedSentence {
+            payload["correctedSentence"] = correctedSentence
+            payload["isCorrected"] = true
+        }
+
+        if let correctionTimestamp = record.correctionTimestamp {
+            payload["correctionTimestamp"] = Timestamp(date: correctionTimestamp)
+        }
+
         return payload
     }
 
@@ -101,6 +110,8 @@ final class FirestoreTranslationService {
         let confidence = data["confidence"] as? Double ?? 0
         let timestamp = (data["timestamp"] as? Timestamp)?.dateValue() ?? .now
         let localVideoFilename = data["localVideoFilename"] as? String
+        let correctedSentence = data["correctedSentence"] as? String
+        let correctionTimestamp = (data["correctionTimestamp"] as? Timestamp)?.dateValue()
 
         return TranslationRecord(
             id: identifier,
@@ -108,6 +119,8 @@ final class FirestoreTranslationService {
             confidence: confidence,
             timestamp: timestamp,
             localVideoFilename: localVideoFilename,
+            correctedSentence: correctedSentence,
+            correctionTimestamp: correctionTimestamp,
             syncState: .synced,
             remoteDocumentID: document.documentID
         )

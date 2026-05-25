@@ -90,6 +90,24 @@ final class HistoryViewModel {
         records.filter { $0.syncState != .synced }
     }
 
+    func record(id: UUID) -> TranslationRecord? {
+        records.first { $0.id == id }
+    }
+
+    func correctRecord(id: UUID, correctedSentence: String) {
+        let trimmedSentence = correctedSentence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSentence.isEmpty,
+              let index = records.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        records[index].correctedSentence = trimmedSentence
+        records[index].correctionTimestamp = .now
+        records[index].syncState = .pendingUpload
+        saveRecords()
+        enqueueCloudSync(for: records[index])
+    }
+
     func markRecordAsSynced(id: UUID, remoteDocumentID: String) {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return }
         records[index].syncState = .synced
@@ -190,6 +208,8 @@ final class HistoryViewModel {
                     confidence: remoteRecord.confidence,
                     timestamp: remoteRecord.timestamp,
                     localVideoFilename: localRecord.localVideoFilename ?? remoteRecord.localVideoFilename,
+                    correctedSentence: remoteRecord.correctedSentence ?? localRecord.correctedSentence,
+                    correctionTimestamp: remoteRecord.correctionTimestamp ?? localRecord.correctionTimestamp,
                     syncState: .synced,
                     remoteDocumentID: remoteRecord.remoteDocumentID ?? localRecord.remoteDocumentID
                 )

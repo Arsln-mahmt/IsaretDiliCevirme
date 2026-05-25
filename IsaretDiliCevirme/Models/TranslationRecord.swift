@@ -20,6 +20,8 @@ struct TranslationRecord: Identifiable, Codable {
     let confidence: Double
     let timestamp: Date
     let localVideoFilename: String?
+    var correctedSentence: String?
+    var correctionTimestamp: Date?
     var syncState: TranslationSyncState
     var remoteDocumentID: String?
 
@@ -29,6 +31,8 @@ struct TranslationRecord: Identifiable, Codable {
         confidence: Double,
         timestamp: Date = .now,
         localVideoFilename: String? = nil,
+        correctedSentence: String? = nil,
+        correctionTimestamp: Date? = nil,
         syncState: TranslationSyncState = .pendingUpload,
         remoteDocumentID: String? = nil
     ) {
@@ -37,8 +41,22 @@ struct TranslationRecord: Identifiable, Codable {
         self.confidence = confidence
         self.timestamp = timestamp
         self.localVideoFilename = localVideoFilename
+        self.correctedSentence = correctedSentence
+        self.correctionTimestamp = correctionTimestamp
         self.syncState = syncState
         self.remoteDocumentID = remoteDocumentID
+    }
+
+    var displaySentence: String {
+        guard let correctedSentence,
+              !correctedSentence.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return sentence
+        }
+        return correctedSentence
+    }
+
+    var isCorrected: Bool {
+        correctedSentence != nil
     }
 
     /// Formatted time string for display (e.g., "14:32")
@@ -82,6 +100,8 @@ struct TranslationRecord: Identifiable, Codable {
         case confidence
         case timestamp
         case localVideoFilename
+        case correctedSentence
+        case correctionTimestamp
         case syncState
         case remoteDocumentID
     }
@@ -95,6 +115,8 @@ struct TranslationRecord: Identifiable, Codable {
         confidence = try container.decodeIfPresent(Double.self, forKey: .confidence) ?? 0
         timestamp = try container.decodeIfPresent(Date.self, forKey: .timestamp) ?? .now
         localVideoFilename = try container.decodeIfPresent(String.self, forKey: .localVideoFilename)
+        correctedSentence = try container.decodeIfPresent(String.self, forKey: .correctedSentence)
+        correctionTimestamp = try container.decodeIfPresent(Date.self, forKey: .correctionTimestamp)
         syncState = try container.decodeIfPresent(TranslationSyncState.self, forKey: .syncState) ?? .pendingUpload
         remoteDocumentID = try container.decodeIfPresent(String.self, forKey: .remoteDocumentID)
     }
@@ -106,6 +128,8 @@ struct TranslationRecord: Identifiable, Codable {
         try container.encode(confidence, forKey: .confidence)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encodeIfPresent(localVideoFilename, forKey: .localVideoFilename)
+        try container.encodeIfPresent(correctedSentence, forKey: .correctedSentence)
+        try container.encodeIfPresent(correctionTimestamp, forKey: .correctionTimestamp)
         try container.encode(syncState, forKey: .syncState)
         try container.encodeIfPresent(remoteDocumentID, forKey: .remoteDocumentID)
     }
