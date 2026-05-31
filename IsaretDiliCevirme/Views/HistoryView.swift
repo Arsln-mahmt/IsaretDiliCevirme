@@ -181,14 +181,15 @@ private struct TranslationVideoDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
     @State private var correctedSentenceText: String
-    @State private var isEditingCorrection: Bool
+    @State private var correctionDraft: String
+    @State private var showsCorrectionEditor = false
     @State private var hasCorrection: Bool
 
     init(record: TranslationRecord, onSaveCorrection: @escaping (String) -> Void) {
         self.record = record
         self.onSaveCorrection = onSaveCorrection
         _correctedSentenceText = State(initialValue: record.displaySentence)
-        _isEditingCorrection = State(initialValue: false)
+        _correctionDraft = State(initialValue: record.displaySentence)
         _hasCorrection = State(initialValue: record.isCorrected)
     }
 
@@ -227,69 +228,203 @@ private struct TranslationVideoDetailView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(correctedSentenceText)
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                detailFooter
+            }
+            .sheet(isPresented: $showsCorrectionEditor) {
+                CorrectionEditorSheet(
+                    originalSentence: record.sentence,
+                    draftSentence: $correctionDraft,
+                    hasCorrection: hasCorrection
+                ) { savedSentence in
+                    correctedSentenceText = savedSentence
+                    correctionDraft = savedSentence
+                    hasCorrection = true
+                    showsCorrectionEditor = false
+                    onSaveCorrection(savedSentence)
+                } onCancel: {
+                    correctionDraft = correctedSentenceText
+                    showsCorrectionEditor = false
+                }
+                .presentationDetents([.height(380), .medium])
+                .presentationDragIndicator(.visible)
+            }
+        }
+    }
 
-                    if hasCorrection {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Düzeltilmiş tahmin", systemImage: "checkmark.seal.fill")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(AppColors.accentGreen)
+    private var detailFooter: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(correctedSentenceText)
+                    .font(.system(size: 21, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                            Text("İlk tahmin: \(record.sentence)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                if hasCorrection {
+                    Label("Düzeltilmiş tahmin", systemImage: "checkmark.seal.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.primary)
+                }
+            }
 
-                    Text(record.formattedTimestamp)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
+            if hasCorrection {
+                Text("İlk tahmin: \(record.sentence)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
 
-                    Text("Güven: \(record.confidenceText)")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
+            Divider()
 
-                    if isEditingCorrection {
-                        VStack(alignment: .leading, spacing: 10) {
-                            TextField("Doğru çeviriyi yaz", text: $correctedSentenceText, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-                                .lineLimit(2...4)
+            HStack(spacing: 10) {
+                Label(record.formattedTimestamp, systemImage: "calendar")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-                            HStack(spacing: 10) {
-                                Button("Vazgeç") {
-                                    correctedSentenceText = record.displaySentence
-                                    isEditingCorrection = false
-                                }
-                                .buttonStyle(.bordered)
+                Spacer()
 
-                                Button {
-                                    let trimmedSentence = correctedSentenceText.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    guard !trimmedSentence.isEmpty else { return }
-                                    correctedSentenceText = trimmedSentence
-                                    hasCorrection = true
-                                    isEditingCorrection = false
-                                    onSaveCorrection(trimmedSentence)
-                                } label: {
-                                    Label("Kaydet", systemImage: "checkmark")
-                                }
-                                .buttonStyle(.borderedProminent)
-                            }
-                        }
-                    } else {
-                        Button {
-                            isEditingCorrection = true
-                        } label: {
-                            Label(hasCorrection ? "Düzeltmeyi Güncelle" : "Tahmini Düzelt", systemImage: "pencil")
-                        }
-                        .buttonStyle(.borderedProminent)
+                Label("Güven: \(record.confidenceText)", systemImage: "waveform.path.ecg")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+            }
+
+            Button {
+                correctionDraft = correctedSentenceText
+                showsCorrectionEditor = true
+            } label: {
+                Label(hasCorrection ? "Düzeltmeyi Güncelle" : "Tahmini Düzelt", systemImage: "pencil")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(
+                                LinearGradient(
+                                    colors: AppColors.primaryGradient,
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    )
+                    .shadow(color: AppColors.primary.opacity(0.22), radius: 9, y: 5)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(.ultraThinMaterial)
+    }
+}
+
+private struct CorrectionEditorSheet: View {
+    let originalSentence: String
+    @Binding var draftSentence: String
+    let hasCorrection: Bool
+    let onSave: (String) -> Void
+    let onCancel: () -> Void
+
+    private var trimmedDraft: String {
+        draftSentence.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    Image(systemName: "pencil.and.outline")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .background(
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: AppColors.primaryGradient,
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(hasCorrection ? "Düzeltmeyi Güncelle" : "Tahmini Düzelt")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+
+                        Text("Doğru çeviriyi yaz ve kaydı güncelle.")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(20)
-                .background(.ultraThinMaterial)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("İlk tahmin")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(originalSentence)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Doğru çeviri")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.primary)
+
+                    TextEditor(text: $draftSentence)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .scrollContentBackground(.hidden)
+                        .padding(10)
+                        .frame(minHeight: 96)
+                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppColors.primary.opacity(0.28), lineWidth: 1)
+                        )
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 12) {
+                    Button {
+                        onCancel()
+                    } label: {
+                        Text("Vazgeç")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    }
+
+                    Button {
+                        guard !trimmedDraft.isEmpty else { return }
+                        onSave(trimmedDraft)
+                    } label: {
+                        Label("Kaydet", systemImage: "checkmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: trimmedDraft.isEmpty ? [.gray.opacity(0.55), .gray.opacity(0.45)] : AppColors.primaryGradient,
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                    }
+                    .disabled(trimmedDraft.isEmpty)
+                }
             }
+            .padding(20)
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
